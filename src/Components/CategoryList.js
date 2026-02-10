@@ -134,7 +134,7 @@ const CategoryList = () => {
 
     return (
         <div className="container my-4">
-            <h2 className="mb-4">Gestión de Categorías</h2>
+            <h2 className="mb-4 text-center">Gestión de Categorías</h2>
             
             {/* Formulario para agregar/editar */}
             <div className="card mb-4">

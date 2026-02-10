@@ -6,6 +6,8 @@ const ProductList = () => {
     const [categories, setCategories] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
+    const [searchName, setSearchName] = useState('');
+    const [searchCategory, setSearchCategory] = useState('');
     const [currentProduct, setCurrentProduct] = useState({
         id: null,
         name: '',
@@ -21,23 +23,23 @@ const ProductList = () => {
             try {
                 setLoading(true);
                 setError(null);
-                
+
                 const [productsRes, categoriesRes] = await Promise.all([
                     fetch('http://localhost:9000/api/productos'),
                     fetch('http://localhost:9000/api/categorias')
                 ]);
-                
+
                 if (!productsRes.ok || !categoriesRes.ok) {
                     throw new Error('Error al cargar datos');
                 }
-                
+
                 const productsData = await productsRes.json();
                 const categoriesData = await categoriesRes.json();
-                
+
                 if (!productsData.success || !categoriesData.success) {
                     throw new Error('Error en los datos recibidos');
                 }
-                
+
                 setProducts(productsData.data);
                 setCategories(categoriesData.data);
             } catch (err) {
@@ -47,24 +49,24 @@ const ProductList = () => {
                 setLoading(false);
             }
         };
-        
+
         fetchData();
     }, []);
 
     const handleDelete = async (id) => {
         if (!window.confirm('¿Estás seguro de eliminar este producto?')) return;
-        
+
         try {
             const response = await fetch(`http://localhost:9000/api/productos/${id}`, {
                 method: 'DELETE'
             });
-            
+
             const result = await response.json();
-            
+
             if (!response.ok || !result.success) {
                 throw new Error(result.message || 'Error al eliminar');
             }
-            
+
             setProducts(products.filter(product => product.id !== id));
         } catch (err) {
             setError(err.message);
@@ -84,44 +86,44 @@ const ProductList = () => {
 
     const handleSubmit = async (e) => {
         e.preventDefault();
-        
+
         const { name, category_id } = currentProduct;
-        
+
         if (!name || !category_id) {
             setError('Nombre y categoría son campos obligatorios');
             return;
         }
-        
+
         try {
             setError(null);
-            const url = currentProduct.id 
+            const url = currentProduct.id
                 ? `http://localhost:9000/api/productos/${currentProduct.id}`
                 : 'http://localhost:9000/api/productos';
-                
+
             const method = currentProduct.id ? 'PUT' : 'POST';
-            
+
             const response = await fetch(url, {
                 method,
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(currentProduct)
             });
-            
+
             const result = await response.json();
-            
+
             if (!response.ok || !result.success) {
                 throw new Error(result.message || 'Error al guardar');
             }
-            
+
             // Actualizar lista de productos
             if (currentProduct.id) {
-                setProducts(products.map(product => 
+                setProducts(products.map(product =>
                     product.id === currentProduct.id ? { ...currentProduct } : product
                 ));
             } else {
                 const newProduct = { ...currentProduct, id: result.id };
                 setProducts([...products, newProduct]);
             }
-            
+
             // Resetear formulario
             setCurrentProduct({
                 id: null,
@@ -147,10 +149,22 @@ const ProductList = () => {
     if (loading) return <div className="text-center my-5">Cargando...</div>;
     if (error) return <div className="alert alert-danger my-5">Error: {error}</div>;
 
+    const filteredProducts = products.filter(product => {
+        const matchesName = product.name
+            .toLowerCase()
+            .includes(searchName.toLowerCase());
+
+        const matchesCategory = searchCategory
+            ? product.category_id === Number(searchCategory)
+            : true;
+
+        return matchesName && matchesCategory;
+    });
+
     return (
         <div className="container my-4">
-            <h2 className="mb-4">Gestión de Productos</h2>
-            
+            <h2 className="mb-4 text-center">Gestión de Productos</h2>
+
             {/* Formulario para agregar/editar */}
             <div className="card mb-4">
                 <div className="card-body">
@@ -215,8 +229,8 @@ const ProductList = () => {
                                     {currentProduct.id ? 'Actualizar' : 'Guardar'}
                                 </button>
                                 {currentProduct.id && (
-                                    <button 
-                                        type="button" 
+                                    <button
+                                        type="button"
                                         className="btn btn-secondary"
                                         onClick={() => setCurrentProduct({
                                             id: null,
@@ -234,18 +248,44 @@ const ProductList = () => {
                     </form>
                 </div>
             </div>
-            
+
             {/* Tabla de productos */}
             <div className="card">
                 <div className="card-body">
                     <div className="d-flex justify-content-between align-items-center mb-3">
                         <h5 className="card-title mb-0">Lista de Productos</h5>
-                        <button 
+                        <button
                             className="btn btn-outline-primary"
                             onClick={() => navigate('/categorias')}
                         >
                             Ver Categorías
                         </button>
+                    </div>
+                    <div className="row mb-3">
+                        <div className="col-md-6">
+                            <input
+                                type="text"
+                                className="form-control"
+                                placeholder="Buscar por nombre..."
+                                value={searchName}
+                                onChange={(e) => setSearchName(e.target.value)}
+                            />
+                        </div>
+
+                        <div className="col-md-6">
+                            <select
+                                className="form-select"
+                                value={searchCategory}
+                                onChange={(e) => setSearchCategory(e.target.value)}
+                            >
+                                <option value="">Todas las categorías</option>
+                                {categories.map(cat => (
+                                    <option key={cat.id} value={cat.id}>
+                                        {cat.name}
+                                    </option>
+                                ))}
+                            </select>
+                        </div>
                     </div>
                     <div className="table-responsive">
                         <table className="table table-striped table-hover">
@@ -261,7 +301,7 @@ const ProductList = () => {
                             </thead>
                             <tbody>
                                 {products.length > 0 ? (
-                                    products.map(product => (
+                                    filteredProducts.map(product => (
                                         <tr key={product.id}>
                                             <td>{product.id}</td>
                                             <td>{product.name}</td>
@@ -270,13 +310,13 @@ const ProductList = () => {
                                             <td>{product.categoria_name || 'Sin categoría'}</td>
                                             <td>
                                                 <div className="d-flex gap-2">
-                                                    <button 
+                                                    <button
                                                         onClick={() => handleEdit(product)}
                                                         className="btn btn-sm btn-warning"
                                                     >
                                                         Editar
                                                     </button>
-                                                    <button 
+                                                    <button
                                                         onClick={() => handleDelete(product.id)}
                                                         className="btn btn-sm btn-danger"
                                                     >
